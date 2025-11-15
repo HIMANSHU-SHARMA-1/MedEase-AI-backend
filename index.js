@@ -151,19 +151,9 @@ connectDB().catch((err) => {
 	console.error('Database connection error:', err);
 });
 
-// For Vercel serverless: export handler function
-const handler = async (req, res) => {
-	// Ensure DB is connected before handling requests
-	try {
-		await connectDB();
-	} catch (err) {
-		console.error('DB connection failed in handler:', err);
-		// Continue anyway - some endpoints might work without DB
-	}
-	return app(req, res);
-};
-
-export default handler;
+// For Vercel serverless: export the app directly
+// @vercel/node will handle the Express app automatically
+export default app;
 
 // For traditional server: start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
