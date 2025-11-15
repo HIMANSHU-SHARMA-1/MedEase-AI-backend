@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from '../config/db.js';
 import { getProviderStatus } from '../config/aiProvider.js';
+import mongoose from 'mongoose';
 import authRoutes from '../routes/authRoutes.js';
 import uploadRoutes from '../routes/uploadRoutes.js';
 import aiRoutes from '../routes/aiRoutes.js';
@@ -58,22 +59,31 @@ app.use('/api/diseases', diseaseRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Healthcheck (before auth routes, no auth required)
-app.get('/health', (_req, res) => {
-	const providerStatus = getProviderStatus();
-	res.json({
-		status: 'ok',
-		timestamp: new Date().toISOString(),
-		services: {
-			mongodb: 'connected',
-			aiProviders: {
-				available: providerStatus.available,
-				gemini: providerStatus.gemini,
-				groq: providerStatus.groq,
-				huggingface: providerStatus.huggingface,
-				openai: providerStatus.openai
+app.get('/health', async (_req, res) => {
+	try {
+		const providerStatus = getProviderStatus();
+		const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+		res.json({
+			status: 'ok',
+			timestamp: new Date().toISOString(),
+			services: {
+				mongodb: dbStatus,
+				aiProviders: {
+					available: providerStatus.available,
+					gemini: providerStatus.gemini,
+					groq: providerStatus.groq,
+					huggingface: providerStatus.huggingface,
+					openai: providerStatus.openai
+				}
 			}
-		}
-	});
+		});
+	} catch (error) {
+		res.status(500).json({
+			status: 'error',
+			message: error.message,
+			timestamp: new Date().toISOString()
+		});
+	}
 });
 
 // API Status endpoint - shows which APIs are working
@@ -147,9 +157,17 @@ app.use((req, res) => {
 
 // Connect to database (for both serverless and traditional server)
 // Don't block on connection - let it connect in background
-connectDB().catch((err) => {
-	console.error('Database connection error:', err);
-});
+// In serverless, connection is cached and reused
+let dbConnected = false;
+connectDB()
+	.then(() => {
+		dbConnected = true;
+		console.log('Database connected successfully');
+	})
+	.catch((err) => {
+		console.error('Database connection error:', err);
+		dbConnected = false;
+	});
 
 // For Vercel serverless: export the app directly
 // @vercel/node will handle the Express app automatically
