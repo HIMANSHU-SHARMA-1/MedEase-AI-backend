@@ -58,6 +58,11 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Simple test endpoint (before everything else)
+app.get('/test', (_req, res) => {
+	res.json({ status: 'ok', message: 'Server is running' });
+});
+
 // Healthcheck (before auth routes, no auth required)
 app.get('/health', async (_req, res) => {
 	try {
