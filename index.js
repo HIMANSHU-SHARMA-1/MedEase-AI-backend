@@ -18,7 +18,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// CORS - allow localhost ports in development
+// CORS - allow localhost ports in development and Vercel domains
 const allowedOrigins = process.env.CLIENT_ORIGIN 
 	? process.env.CLIENT_ORIGIN.split(',')
 	: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
@@ -27,6 +27,11 @@ app.use(cors({
 	origin: (origin, callback) => {
 		// Allow requests with no origin (like mobile apps or curl requests)
 		if (!origin) return callback(null, true);
+		
+		// Allow Vercel preview and production domains
+		if (origin.includes('.vercel.app') || origin.includes('vercel.app')) {
+			return callback(null, true);
+		}
 		
 		if (allowedOrigins.includes(origin) || origin.startsWith('http://localhost:')) {
 			callback(null, true);
@@ -140,16 +145,27 @@ app.use((req, res) => {
 	res.status(404).json({ message: 'Not Found' });
 });
 
-const PORT = process.env.PORT || 5000;
-connectDB()
-	.then(() => {
-		app.listen(PORT, () => {
-			console.log(`Server running on port ${PORT}`);
+// Connect to database (for both serverless and traditional server)
+connectDB().catch((err) => {
+	console.error('Database connection error:', err);
+});
+
+// For Vercel serverless: export the app
+export default app;
+
+// For traditional server: start listening (only if not in Vercel)
+if (process.env.VERCEL !== '1') {
+	const PORT = process.env.PORT || 5000;
+	connectDB()
+		.then(() => {
+			app.listen(PORT, () => {
+				console.log(`Server running on port ${PORT}`);
+			});
+		})
+		.catch((err) => {
+			console.error('Failed to start server', err);
+			process.exit(1);
 		});
-	})
-	.catch((err) => {
-		console.error('Failed to start server', err);
-		process.exit(1);
-	});
+}
 
 
