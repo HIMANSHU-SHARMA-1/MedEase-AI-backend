@@ -53,13 +53,16 @@ app.get('/health', (_req, res) => {
 
 // Try to load routes with error handling
 let routesLoaded = false;
-try {
-	// Import routes dynamically to catch errors
-	const cors = (await import('cors')).default;
-	const morgan = (await import('morgan')).default;
-	const { connectDB } = await import('../config/db.js');
-	const { getProviderStatus } = await import('../config/aiProvider.js');
-	const mongoose = (await import('mongoose')).default;
+
+// Use IIFE for async imports
+(async () => {
+	try {
+		// Import routes dynamically to catch errors
+		const cors = (await import('cors')).default;
+		const morgan = (await import('morgan')).default;
+		const { connectDB } = await import('../config/db.js');
+		const { getProviderStatus } = await import('../config/aiProvider.js');
+		const mongoose = (await import('mongoose')).default;
 	
 	// Add morgan logging
 	app.use(morgan('dev'));
@@ -219,19 +222,20 @@ try {
 		console.error('Error initializing database connection:', err.message);
 	}
 	
-} catch (err) {
-	console.error('Error loading routes or middleware:', err);
-	routesLoaded = false;
-	
-	// Fallback route to show error
-	app.use('/api/*', (req, res) => {
-		res.status(500).json({ 
-			error: 'Routes failed to load', 
-			message: err.message,
-			stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+	} catch (err) {
+		console.error('Error loading routes or middleware:', err);
+		routesLoaded = false;
+		
+		// Fallback route to show error
+		app.use('/api/*', (req, res) => {
+			res.status(500).json({ 
+				error: 'Routes failed to load', 
+				message: err.message,
+				stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+			});
 		});
-	});
-}
+	}
+})();
 
 // Global error handler
 app.use((err, req, res, next) => {
@@ -253,16 +257,17 @@ export default app;
 
 // For traditional server: start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
-	const PORT = process.env.PORT || 5000;
-	const { connectDB } = await import('../config/db.js');
-	connectDB()
-		.then(() => {
+	(async () => {
+		try {
+			const PORT = process.env.PORT || 5000;
+			const { connectDB } = await import('../config/db.js');
+			await connectDB();
 			app.listen(PORT, () => {
 				console.log(`Server running on port ${PORT}`);
 			});
-		})
-		.catch((err) => {
+		} catch (err) {
 			console.error('Failed to start server', err);
 			process.exit(1);
-		});
+		}
+	})();
 }
