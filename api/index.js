@@ -230,10 +230,18 @@ export default app;
 
 // For traditional server: start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
-	const PORT = process.env.PORT || 5000;
+	// Render and other platforms provide PORT via environment variable
+	const PORT = process.env.PORT;
+	
+	if (!PORT) {
+		console.error('❌ PORT environment variable is not set!');
+		console.error('Please set PORT in your .env file for local development');
+		process.exit(1);
+	}
+	
 	connectDB()
 		.then(() => {
-			app.listen(PORT, () => {
+			app.listen(PORT, '0.0.0.0', () => {
 				console.log(`Server running on port ${PORT}`);
 			});
 		})

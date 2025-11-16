@@ -173,7 +173,16 @@ export default app;
 
 // For traditional server (Render, Railway, etc.): start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
-	const PORT = process.env.PORT || 5000;
+	// Render and other platforms provide PORT via environment variable
+	// For local development, PORT should be set in .env file
+	const PORT = process.env.PORT;
+	
+	if (!PORT) {
+		console.error('❌ PORT environment variable is not set!');
+		console.error('Please set PORT in your .env file for local development');
+		console.error('On Render, PORT is automatically provided');
+		process.exit(1);
+	}
 	
 	// Connect to database and start server
 	connectDB()
