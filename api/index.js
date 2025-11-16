@@ -31,6 +31,20 @@ app.use((req, res, next) => {
 	next();
 });
 
+// Root endpoint
+app.get('/', (_req, res) => {
+	res.json({ 
+		status: 'ok', 
+		message: 'MedEase API Server is running',
+		timestamp: new Date().toISOString(),
+		endpoints: {
+			test: '/test',
+			health: '/health',
+			status: '/api/status'
+		}
+	});
+});
+
 // Simple test endpoint - no dependencies
 app.get('/test', (_req, res) => {
 	res.json({ 
