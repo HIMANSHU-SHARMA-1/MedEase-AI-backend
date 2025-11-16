@@ -19,6 +19,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Trust proxy - required for Render and other platforms behind reverse proxy
+// This fixes the rate limiter warning about X-Forwarded-For header
+app.set('trust proxy', 1);
+
 // CORS - allow localhost ports in development, Vercel, and Render domains
 const allowedOrigins = process.env.CLIENT_ORIGIN 
 	? process.env.CLIENT_ORIGIN.split(',')
