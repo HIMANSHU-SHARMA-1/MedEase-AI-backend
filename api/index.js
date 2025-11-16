@@ -58,9 +58,21 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Simple test endpoint (before everything else)
+// Simple test endpoint (before everything else) - no dependencies
 app.get('/test', (_req, res) => {
-	res.json({ status: 'ok', message: 'Server is running' });
+	try {
+		res.json({ 
+			status: 'ok', 
+			message: 'Server is running',
+			timestamp: new Date().toISOString(),
+			environment: process.env.NODE_ENV || 'development'
+		});
+	} catch (error) {
+		res.status(500).json({ 
+			status: 'error', 
+			message: error.message 
+		});
+	}
 });
 
 // Healthcheck (before auth routes, no auth required)
@@ -163,21 +175,23 @@ app.use((req, res) => {
 // Connect to database (for both serverless and traditional server)
 // Don't block on connection - let it connect in background
 // In serverless, connection is cached and reused
-let dbConnected = false;
-connectDB()
-	.then(() => {
-		dbConnected = true;
-		console.log('Database connected successfully');
-	})
-	.catch((err) => {
-		console.error('Database connection error:', err);
-		dbConnected = false;
-	});
-
-// For Vercel serverless: export handler function
-export default async function handler(req, res) {
-	return app(req, res);
+// Wrap in try-catch to prevent crashes
+try {
+	connectDB()
+		.then(() => {
+			console.log('Database connected successfully');
+		})
+		.catch((err) => {
+			console.error('Database connection error:', err.message);
+			// Don't throw - let the app continue without DB for health checks
+		});
+} catch (err) {
+	console.error('Error initializing database connection:', err.message);
 }
+
+// For Vercel serverless: export the app directly
+// @vercel/node automatically handles Express apps
+export default app;
 
 // For traditional server: start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
