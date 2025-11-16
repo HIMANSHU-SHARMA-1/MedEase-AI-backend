@@ -167,6 +167,16 @@ app.get('/api/status', async (_req, res) => {
 	res.json(status);
 });
 
+// Global error handler (must be before 404)
+app.use((err, req, res, next) => {
+	console.error('Unhandled error:', err);
+	res.status(err.status || 500).json({
+		status: 'error',
+		message: err.message || 'Internal Server Error',
+		timestamp: new Date().toISOString()
+	});
+});
+
 // 404
 app.use((req, res) => {
 	res.status(404).json({ message: 'Not Found' });
