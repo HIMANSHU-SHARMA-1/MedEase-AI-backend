@@ -47,16 +47,32 @@ app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Security: rate limit AI and upload endpoints
-app.use('/api/ai', apiLimiter);
-app.use('/api/upload', apiLimiter);
+// Security: rate limit AI and upload endpoints - wrap in try-catch
+try {
+	app.use('/api/ai', apiLimiter);
+	app.use('/api/upload', apiLimiter);
+} catch (err) {
+	console.error('Error setting up rate limiter:', err);
+	// Continue without rate limiting if it fails
+}
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/diseases', diseaseRoutes);
-app.use('/api/admin', adminRoutes);
+// Routes - wrap in try-catch to handle import errors
+try {
+	app.use('/api/auth', authRoutes);
+	app.use('/api/upload', uploadRoutes);
+	app.use('/api/ai', aiRoutes);
+	app.use('/api/diseases', diseaseRoutes);
+	app.use('/api/admin', adminRoutes);
+} catch (err) {
+	console.error('Error setting up routes:', err);
+	// Add a fallback route to show error
+	app.use('/api/*', (req, res) => {
+		res.status(500).json({ 
+			error: 'Route setup failed', 
+			message: err.message 
+		});
+	});
+}
 
 // Simple test endpoint (before everything else) - no dependencies
 app.get('/test', (_req, res) => {
