@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectDB } from './config/db.js';
@@ -18,7 +19,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// CORS - allow localhost ports in development and Vercel domains
+// CORS - allow localhost ports in development, Vercel, and Render domains
 const allowedOrigins = process.env.CLIENT_ORIGIN 
 	? process.env.CLIENT_ORIGIN.split(',')
 	: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
@@ -30,6 +31,11 @@ app.use(cors({
 		
 		// Allow Vercel preview and production domains
 		if (origin.includes('.vercel.app') || origin.includes('vercel.app')) {
+			return callback(null, true);
+		}
+		
+		// Allow Render domains
+		if (origin.includes('.onrender.com') || origin.includes('onrender.com')) {
 			return callback(null, true);
 		}
 		
@@ -59,21 +65,31 @@ app.use('/api/admin', adminRoutes);
 
 // Healthcheck (before auth routes, no auth required)
 app.get('/health', (_req, res) => {
-	const providerStatus = getProviderStatus();
-	res.json({
-		status: 'ok',
-		timestamp: new Date().toISOString(),
-		services: {
-			mongodb: 'connected',
-			aiProviders: {
-				available: providerStatus.available,
-				gemini: providerStatus.gemini,
-				groq: providerStatus.groq,
-				huggingface: providerStatus.huggingface,
-				openai: providerStatus.openai
+	try {
+		const providerStatus = getProviderStatus();
+		const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+		
+		res.json({
+			status: 'ok',
+			timestamp: new Date().toISOString(),
+			services: {
+				mongodb: dbStatus,
+				aiProviders: {
+					available: providerStatus.available,
+					gemini: providerStatus.gemini,
+					groq: providerStatus.groq,
+					huggingface: providerStatus.huggingface,
+					openai: providerStatus.openai
+				}
 			}
-		}
-	});
+		});
+	} catch (error) {
+		res.status(500).json({
+			status: 'error',
+			message: error.message,
+			timestamp: new Date().toISOString()
+		});
+	}
 });
 
 // API Status endpoint - shows which APIs are working
@@ -155,18 +171,27 @@ connectDB().catch((err) => {
 // @vercel/node will handle the Express app automatically
 export default app;
 
-// For traditional server: start listening (only if not in Vercel)
+// For traditional server (Render, Railway, etc.): start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
 	const PORT = process.env.PORT || 5000;
+	
+	// Connect to database and start server
 	connectDB()
 		.then(() => {
-			app.listen(PORT, () => {
-				console.log(`Server running on port ${PORT}`);
+			app.listen(PORT, '0.0.0.0', () => {
+				console.log(`🚀 Server running on port ${PORT}`);
+				console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+				console.log(`🌐 CORS enabled for: ${allowedOrigins.join(', ')}`);
 			});
 		})
 		.catch((err) => {
-			console.error('Failed to start server', err);
-			process.exit(1);
+			console.error('❌ Failed to start server:', err);
+			// On Render, still start the server even if DB connection fails
+			// This allows the health check to work and show DB status
+			app.listen(PORT, '0.0.0.0', () => {
+				console.log(`⚠️ Server running on port ${PORT} but database connection failed`);
+				console.error('Database error:', err.message);
+			});
 		});
 }
 
