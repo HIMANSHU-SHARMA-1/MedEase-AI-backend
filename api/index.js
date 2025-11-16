@@ -174,9 +174,10 @@ connectDB()
 		dbConnected = false;
 	});
 
-// For Vercel serverless: export the app directly
-// @vercel/node will handle the Express app automatically
-export default app;
+// For Vercel serverless: export handler function
+export default async function handler(req, res) {
+	return app(req, res);
+}
 
 // For traditional server: start listening (only if not in Vercel)
 if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
@@ -192,5 +193,3 @@ if (process.env.VERCEL !== '1' && !process.env.VERCEL) {
 			process.exit(1);
 		});
 }
-
-
